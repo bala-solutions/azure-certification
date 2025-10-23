@@ -1,0 +1,67 @@
+az network vnet create --resource-group mytechresourcegroup --name MybmdgVNet --address-prefix 10.0.0.0/16 --subnet-name AppGwSubnet --subnet-prefix 10.0.1.0/24
+az network vnet subnet create --resource-group mytechresourcegroup --vnet-name MybmdgVNet --name BackendSubnet --address-prefix 10.0.2.0/24
+az vm create --resource-group mytechresourcegroup --name nginxVM --image Ubuntu2204 --size Standard_B1s --admin-username azureuser --admin-password YourPassword123! --authentication-type password --vnet-name MybmdgVNet --subnet BackendSubnet --public-ip-sku Standard
+
+
+az vm open-port --port 80 --resource-group mytechresourcegroup --name nginxVM
+az vm open-port --port 443 --resource-group mytechresourcegroup --name nginxVM  --priority 1002
+
+
+Connect with VM :
+
+sudo apt update -y
+sudo apt install nginx -y
+sudo systemctl enable nginx
+sudo systemctl start nginx
+
+Create this file and copy  the below content /etc/nginx/conf.d/api.conf
+server {
+    listen 80;
+    server_name _;
+
+    default_type application/json;
+
+    # GET /api/status
+    location = /api/status {
+        if ($request_method = GET) {
+            return 200 '{"status":"Application is running"}';
+        }
+        return 405 '{"error":"Method not allowed"}';
+    }
+
+    #POST /api/data (echo request body)
+    location = /api/data {
+        if ($request_method != POST) {
+            return 405 '{"error":"Method not allowed"}';
+        }
+
+        echo_read_request_body;
+        echo '{ "message": "Data received", "data": ';
+        echo_request_body;
+        echo ' }';
+    }
+
+    # Default route
+    location / {
+        default_type text/plain;
+        return 200 "Welcome to NGINX Root!";
+    }
+}
+
+
+sudo mv /etc/nginx/conf.d/api.conf /etc/nginx/sites-available/api
+sudo rm /etc/nginx/sites-enabled/default
+
+sudo nginx -t
+sudo systemctl restart nginx
+
+
+curl http://localhost/api/status
+curl -X POST http://localhost/api/data  -d "password:1234  OR '1'='1'"
+
+Please validate with public ip of VM
+
+
+
+
+
